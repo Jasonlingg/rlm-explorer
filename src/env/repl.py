@@ -78,13 +78,21 @@ class DockerREPL(BaseREPL):
         logger.debug(f"Preamble output: {output[:200]}")
 
     def execute(self, code: str, timeout: int = 30) -> str:
-        """Append code to cumulative script and execute the full script."""
+        """Append code to cumulative script and execute. Rollback on SyntaxError."""
         if self._container_id is None:
             raise RuntimeError("No active session — call start_session() first")
 
         self._step += 1
+        previous_script = self._cumulative_script
         self._cumulative_script += f"\n# --- Step {self._step} ---\n{code}\n"
-        return self._run_script(self._cumulative_script, timeout=timeout)
+        output = self._run_script(self._cumulative_script, timeout=timeout)
+
+        # Rollback if this step introduced a SyntaxError
+        if "SyntaxError" in output:
+            logger.warning(f"Step {self._step} caused SyntaxError — rolling back")
+            self._cumulative_script = previous_script
+
+        return output
 
     def _run_script(self, script: str, timeout: int = 30) -> str:
         """Write script to container and execute it."""
@@ -149,10 +157,18 @@ class LocalREPL(BaseREPL):
         logger.debug(f"Preamble output: {output[:200]}")
 
     def execute(self, code: str, timeout: int = 30) -> str:
-        """Append code to cumulative script and execute."""
+        """Append code to cumulative script and execute. Rollback on SyntaxError."""
         self._step += 1
+        previous_script = self._cumulative_script
         self._cumulative_script += f"\n# --- Step {self._step} ---\n{code}\n"
-        return self._run_script(self._cumulative_script, timeout=timeout)
+        output = self._run_script(self._cumulative_script, timeout=timeout)
+
+        # Rollback if this step introduced a SyntaxError
+        if "SyntaxError" in output:
+            logger.warning(f"Step {self._step} caused SyntaxError — rolling back")
+            self._cumulative_script = previous_script
+
+        return output
 
     def _run_script(self, script: str, timeout: int = 30) -> str:
         """Write cumulative script to temp file and execute."""

@@ -90,6 +90,22 @@ class ClaudePolicy:
         """Extract executable Python from model output, stripping fences, XML, and prose."""
         stripped = text.strip()
 
+        # If there's a SUBMIT line anywhere, extract and return it
+        # (model is ready to answer — don't try to run code too)
+        submit_match = re.search(
+            r"(SUBMIT:\s*.*?CITATIONS:\s*\[.*?\])",
+            stripped,
+            re.DOTALL | re.IGNORECASE,
+        )
+        if not submit_match:
+            submit_match = re.search(
+                r"(SUBMIT:\s*.+)",
+                stripped,
+                re.IGNORECASE,
+            )
+        if submit_match:
+            return submit_match.group(1).strip()
+
         # Strip markdown code fences
         if stripped.startswith("```python") and stripped.endswith("```"):
             return stripped[len("```python"):][:-3].strip()
@@ -108,19 +124,39 @@ class ClaudePolicy:
         if code_blocks:
             return "\n".join(code_blocks).strip()
 
-        # Strip leading prose lines (lines before first line that looks like code)
+        # Filter: keep only lines that look like Python code, drop prose
         lines = stripped.split("\n")
-        code_start = 0
-        for i, line in enumerate(lines):
+        code_lines = []
+        for line in lines:
             s = line.strip()
+            # Keep blank lines (they're valid Python)
             if not s:
+                code_lines.append(line)
                 continue
-            # Looks like code: assignment, function call, import, print, for/if, comment
-            if re.match(r"^(#|[a-zA-Z_]\w*\s*[=(]|from |import |print|for |if |while )", s):
-                code_start = i
-                break
-        else:
-            # No code-like line found — return as-is (may be a SUBMIT)
-            return stripped
+            # Keep lines that look like code
+            if re.match(
+                r"^("
+                r"#|"                           # comments
+                r"[a-zA-Z_]\w*\s*[=(.\[]|"      # assignment, call, attribute, index
+                r"from |import |"               # imports
+                r"print\(|"                     # print
+                r"for |if |elif |else:|while |" # control flow
+                r"def |class |"                 # definitions
+                r"return |yield |"              # returns
+                r"try:|except |finally:|"       # exception handling
+                r"with |"                       # context managers
+                r"raise |assert |"              # raise/assert
+                r"pass|break|continue|"         # simple statements
+                r"\)|"                          # closing paren (continuation)
+                r"\]|"                          # closing bracket
+                r"\}|"                          # closing brace
+                r"\"\"\"|'''|"                  # docstrings
+                r"@"                            # decorators
+                r")",
+                s,
+            ):
+                code_lines.append(line)
+            # else: drop the line (it's prose)
 
-        return "\n".join(lines[code_start:]).strip()
+        result = "\n".join(code_lines).strip()
+        return result if result else stripped
