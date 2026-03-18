@@ -39,10 +39,17 @@ class EpisodeInfo:
 
 
 SYSTEM_PREAMBLE = """You have a Python REPL with these functions loaded:
-  search(query, top_k=5)  →  [{"doc_id", "title", "chunk", "score"}]
-  read(doc_id)             →  full document text
-  extract(doc_id, pattern) →  regex matches
-  list_docs()              →  [{"doc_id", "title", "chars"}]
+  search(query, top_k=5)              → [{"doc_id", "title", "chunk", "score"}]
+  search(query, method="chunk")       → chunk-level search (finds buried facts)
+  read(doc_id)                        → full document text
+  extract(doc_id, pattern)            → regex matches
+  search_within(doc_id, query)        → search inside a specific document
+  verify(doc_id, claim)               → check if a claim is supported by a doc
+  list_docs()                         → [{"doc_id", "title", "chars"}]
+
+TIP: Track discoveries as you go: known_facts = {}
+     known_facts["company_x"] = "Apex Corp"
+     Then use known_facts values in subsequent searches.
 
 Respond with ONLY Python code. Use print() to see output.
 When done, respond: SUBMIT: <answer> CITATIONS: ["id1", "id2"]
@@ -195,6 +202,13 @@ class DocumentExplorationEnv:
                 "for r in results:\n"
                 "    print(r[\"doc_id\"], r[\"title\"])"
             )
+
+        # Add step counter so agent knows urgency
+        remaining = self.max_steps - self._step_count
+        if remaining <= 3:
+            observation += f"\n\n[Step {self._step_count}/{self.max_steps} — {remaining} steps remaining. Submit soon!]"
+        else:
+            observation += f"\n\n[Step {self._step_count}/{self.max_steps}]"
 
         # Check if max steps reached
         done = self._step_count >= self.max_steps
