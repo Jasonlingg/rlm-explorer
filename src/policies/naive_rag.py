@@ -29,7 +29,7 @@ class NaiveRAGPolicy:
     def __init__(
         self,
         corpus: Corpus,
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-haiku-4-5-20251001",
         top_k: int = 5,
     ) -> None:
         self.corpus = corpus

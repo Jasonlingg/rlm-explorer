@@ -6,12 +6,14 @@ Future work replaces this with an open-weight model trained via GRPO.
 
 from __future__ import annotations
 
+import re
+
 import anthropic
 from loguru import logger
 
 SYSTEM_PROMPT = """You are an expert data analyst exploring a document corpus through a Python REPL.
 
-Your environment has these tools already loaded:
+Your environment has these Python functions already loaded:
 - search(query, top_k=5) → keyword search over documents, returns [{doc_id, title, chunk, score}]
 - read(doc_id) → returns full document text
 - extract(doc_id, pattern) → regex extraction from a document
@@ -27,12 +29,20 @@ Strategy:
 4. Compute or aggregate as needed
 5. When confident, submit your answer
 
-IMPORTANT: Each response must be EITHER:
-- Python code to execute (will be run in the REPL, output returned to you)
-- A submission in this exact format:
-  SUBMIT: <your detailed answer> CITATIONS: ["doc_id_1", "doc_id_2"]
+OUTPUT FORMAT — you MUST follow this exactly:
+- Respond with ONLY raw Python code. No explanations, no markdown, no XML, no prose.
+- Do NOT wrap code in ```python``` fences or <function_calls> XML tags.
+- Do NOT include any text before or after the code.
+- Call the functions directly as Python: results = search("query")
+- To submit, respond with EXACTLY: SUBMIT: <your answer> CITATIONS: ["doc_id_1", "doc_id_2"]
 
-Write clean, focused code. Print results you want to see. Be thorough but efficient."""
+Example response (search):
+results = search("revenue report")
+for r in results:
+    print(r["doc_id"], r["title"])
+
+Example response (submit):
+SUBMIT: The combined revenue was $5.2M. CITATIONS: ["doc_001", "doc_007"]"""
 
 
 class ClaudePolicy:
@@ -40,7 +50,7 @@ class ClaudePolicy:
 
     def __init__(
         self,
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-haiku-4-5-20251001",
         max_tokens: int = 4096,
         temperature: float = 0.0,
     ) -> None:
@@ -65,8 +75,8 @@ class ClaudePolicy:
         action = response.content[0].text
         self.history.append({"role": "assistant", "content": action})
 
-        # Strip markdown code fences if present
-        action = self._strip_code_fences(action)
+        # Clean raw model output into executable Python
+        action = self._clean_action(action)
 
         logger.debug(f"Claude action ({len(action)} chars): {action[:100]}...")
         return action
@@ -76,13 +86,41 @@ class ClaudePolicy:
         self.history = []
 
     @staticmethod
-    def _strip_code_fences(text: str) -> str:
-        """Remove ```python ... ``` wrappers if the entire response is a code block."""
+    def _clean_action(text: str) -> str:
+        """Extract executable Python from model output, stripping fences, XML, and prose."""
         stripped = text.strip()
+
+        # Strip markdown code fences
         if stripped.startswith("```python") and stripped.endswith("```"):
             return stripped[len("```python"):][:-3].strip()
         if stripped.startswith("```") and stripped.endswith("```"):
-            # Remove first line (```lang) and last line (```)
             lines = stripped.split("\n")
             return "\n".join(lines[1:-1]).strip()
-        return text
+
+        # Strip XML function_calls (Haiku sometimes generates these)
+        if "<function_calls>" in stripped or "<invoke" in stripped:
+            stripped = re.sub(r"</?function_calls>", "", stripped)
+            stripped = re.sub(r"</?invoke[^>]*>", "", stripped)
+            stripped = re.sub(r"</?parameter[^>]*>", "", stripped)
+
+        # Extract code from markdown fences embedded in prose
+        code_blocks = re.findall(r"```(?:python)?\n(.*?)```", stripped, re.DOTALL)
+        if code_blocks:
+            return "\n".join(code_blocks).strip()
+
+        # Strip leading prose lines (lines before first line that looks like code)
+        lines = stripped.split("\n")
+        code_start = 0
+        for i, line in enumerate(lines):
+            s = line.strip()
+            if not s:
+                continue
+            # Looks like code: assignment, function call, import, print, for/if, comment
+            if re.match(r"^(#|[a-zA-Z_]\w*\s*[=(]|from |import |print|for |if |while )", s):
+                code_start = i
+                break
+        else:
+            # No code-like line found — return as-is (may be a SUBMIT)
+            return stripped
+
+        return "\n".join(lines[code_start:]).strip()

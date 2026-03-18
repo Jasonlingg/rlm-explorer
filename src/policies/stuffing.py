@@ -29,7 +29,7 @@ class ContextStuffingPolicy:
     def __init__(
         self,
         corpus: Corpus,
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-haiku-4-5-20251001",
         max_context_chars: int = 100_000,
     ) -> None:
         self.corpus = corpus
