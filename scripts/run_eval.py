@@ -60,6 +60,9 @@ def main(
     question: str | None = typer.Option(
         None, "--question", "-q", help="Run only this question ID (e.g. q01)"
     ),
+    test: bool = typer.Option(
+        False, "--test", "-t", help="Test mode: only run first 3 questions"
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Print full trajectories"
     ),
@@ -83,6 +86,9 @@ def main(
 
     # Load questions
     questions = load_questions(questions_path)
+    if test:
+        questions = questions[:3]
+        console.print(f"[yellow]Test mode: using first 3 questions[/yellow]")
     console.print(f"Loaded {len(questions)} questions\n")
 
     # Build policies
