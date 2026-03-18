@@ -95,6 +95,11 @@ Plug in an open-weight model (Llama, Qwen) with GRPO on Prime Intellect to train
 - [FAISS](https://github.com/facebookresearch/faiss) — Vector search
 - [Docker](https://www.docker.com) — Sandboxed code execution
 
+## Development Stack
+
+- [Claude Code](https://claude.ai/claude-code) — AI-assisted development, debugging, and implementation
+- [Google NotebookLM](https://notebooklm.google.com) — Research synthesis and project documentation. The notebook aggregates multi-hop RAG papers, codebase source files, and eval run logs into a single queryable knowledge base for iterating on environment design. Used agentic skill for Google NotebookLM.
+
 ## License
 
 MIT
