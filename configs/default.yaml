@@ -1,0 +1,17 @@
+model:
+  name: claude-sonnet-4-20250514
+  max_tokens: 4096
+  temperature: 0.0
+env:
+  max_steps: 10
+  sandbox_timeout: 30
+  memory_limit: 512m
+corpus:
+  path: data/corpus
+  embedding_model: all-MiniLM-L6-v2
+  chunk_size: 512
+  chunk_overlap: 64
+  top_k: 5
+eval:
+  questions_path: data/questions/eval_set.json
+  policies: [claude_policy, naive_rag, context_stuffing, single_shot]

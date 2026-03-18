@@ -1,0 +1,12 @@
+services:
+  sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: rlm-sandbox
+    volumes:
+      - ./data/corpus:/workspace/corpus:ro
+    network_mode: none
+    mem_limit: 512m
+    stdin_open: true
+    tty: true

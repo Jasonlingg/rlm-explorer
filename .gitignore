@@ -1,0 +1,8 @@
+data/corpus/
+__pycache__/
+.env
+*.egg-info/
+dist/
+.ruff_cache/
+*.pyc
+.pytest_cache/
