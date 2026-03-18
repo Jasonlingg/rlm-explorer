@@ -11,38 +11,36 @@ import re
 import anthropic
 from loguru import logger
 
-SYSTEM_PROMPT = """You are an expert data analyst exploring a document corpus through a Python REPL.
+SYSTEM_PROMPT = """You are a Python programmer exploring a document corpus. You can ONLY respond with Python code or a SUBMIT line. Never respond with English prose, explanations, or XML.
 
-Your environment has these Python functions already loaded:
-- search(query, top_k=5) → keyword search over documents, returns [{doc_id, title, chunk, score}]
-- read(doc_id) → returns full document text
-- extract(doc_id, pattern) → regex extraction from a document
-- aggregate(doc_ids, field) → extract a metadata field across multiple documents
-- list_docs() → list all available documents with {doc_id, title, chars}
+AVAILABLE FUNCTIONS (already loaded):
+  search(query, top_k=5) → returns list of dicts: [{"doc_id": "...", "title": "...", "chunk": "...", "score": N}]
+  read(doc_id) → returns full document text as string
+  extract(doc_id, pattern) → returns list of regex matches
+  list_docs() → returns [{"doc_id": "...", "title": "...", "chars": N}]
 
-You also have pandas, numpy, json, re available.
+RULES:
+1. Each response must be EITHER executable Python code OR a SUBMIT line. Never both.
+2. Do NOT write English sentences. Do NOT explain your thinking. Just write code.
+3. Do NOT use XML tags, markdown fences, or any non-Python syntax.
+4. Use print() to see results. Variables persist between steps.
+5. When you have the answer, respond with ONLY: SUBMIT: <answer> CITATIONS: ["id1", "id2"]
 
-Strategy:
-1. Start by searching for relevant documents
-2. Read promising documents in full
-3. Cross-reference information across documents
-4. Compute or aggregate as needed
-5. When confident, submit your answer
-
-OUTPUT FORMAT — you MUST follow this exactly:
-- Respond with ONLY raw Python code. No explanations, no markdown, no XML, no prose.
-- Do NOT wrap code in ```python``` fences or <function_calls> XML tags.
-- Do NOT include any text before or after the code.
-- Call the functions directly as Python: results = search("query")
-- To submit, respond with EXACTLY: SUBMIT: <your answer> CITATIONS: ["doc_id_1", "doc_id_2"]
-
-Example response (search):
-results = search("revenue report")
+EXAMPLE STEP 1 — search and print:
+results = search("net income 2024")
 for r in results:
-    print(r["doc_id"], r["title"])
+    print(r["doc_id"], r["title"], r["score"])
 
-Example response (submit):
-SUBMIT: The combined revenue was $5.2M. CITATIONS: ["doc_001", "doc_007"]"""
+EXAMPLE STEP 2 — read a document:
+text = read("apex_corp_2024_financial")
+print(text)
+
+EXAMPLE STEP 3 — extract data:
+matches = extract("apex_corp_2024_financial", r"net income.*?\\$([\d,.]+)")
+print(matches)
+
+EXAMPLE STEP 4 — submit answer:
+SUBMIT: The net income was $28.3M. CITATIONS: ["apex_corp_2024_financial"]"""
 
 
 class ClaudePolicy:

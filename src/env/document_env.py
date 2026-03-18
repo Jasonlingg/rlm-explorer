@@ -38,17 +38,14 @@ class EpisodeInfo:
     final_reward: RewardBreakdown | None = None
 
 
-SYSTEM_PREAMBLE = """You are exploring a document corpus to answer a question.
+SYSTEM_PREAMBLE = """You have a Python REPL with these functions loaded:
+  search(query, top_k=5)  →  [{"doc_id", "title", "chunk", "score"}]
+  read(doc_id)             →  full document text
+  extract(doc_id, pattern) →  regex matches
+  list_docs()              →  [{"doc_id", "title", "chars"}]
 
-Available tools (already loaded in your Python environment):
-- search(query, top_k=5) → keyword search, returns [{doc_id, title, chunk, score}]
-- read(doc_id) → full document text
-- extract(doc_id, pattern) → regex extraction
-- aggregate(doc_ids, field) → extract metadata field across docs
-- list_docs() → list all available documents
-
-Write Python code to investigate. When ready, respond with:
-SUBMIT: <your answer> CITATIONS: ["doc_id_1", "doc_id_2"]
+Respond with ONLY Python code. Use print() to see output.
+When done, respond: SUBMIT: <answer> CITATIONS: ["id1", "id2"]
 """
 
 
@@ -188,6 +185,16 @@ class DocumentExplorationEnv:
 
         # Execute code in REPL
         observation = self.repl.execute(action, timeout=30)
+
+        # If SyntaxError, add a hint to help the model recover
+        if "SyntaxError" in observation:
+            observation += (
+                "\n\nHINT: Your response had a syntax error. "
+                "Respond with ONLY Python code, no English text. Example:\n"
+                "results = search(\"your query\")\n"
+                "for r in results:\n"
+                "    print(r[\"doc_id\"], r[\"title\"])"
+            )
 
         # Check if max steps reached
         done = self._step_count >= self.max_steps
