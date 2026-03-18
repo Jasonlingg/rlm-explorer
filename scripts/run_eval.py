@@ -60,6 +60,9 @@ def main(
     question: str | None = typer.Option(
         None, "--question", "-q", help="Run only this question ID (e.g. q01)"
     ),
+    hard: bool = typer.Option(
+        False, "--hard", help="Use hard multi-hop question set"
+    ),
     test: bool = typer.Option(
         False, "--test", "-t", help="Test mode: only run first 3 questions"
     ),
@@ -85,6 +88,9 @@ def main(
     corpus.load()
 
     # Load questions
+    if hard:
+        questions_path = "data/questions/hard_eval_set.json"
+        console.print("[bold magenta]Using HARD multi-hop question set[/bold magenta]")
     questions = load_questions(questions_path)
     if test:
         questions = questions[:3]

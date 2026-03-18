@@ -1,0 +1,122 @@
+[
+  {
+    "id": "h01",
+    "question": "What was the Q3 2024 spending on Project Phoenix, and which two companies are the parties in the underlying contract?",
+    "answer": "Q3 2024 spending on Project Phoenix was $4.8M ($2.1M platform development + $2.7M integration testing). Project Phoenix is the codename for the supply chain automation initiative between Apex Corp and Meridian Ltd, formalized in a $45M, 3-year Technology Services contract.",
+    "expected_citations": ["apex_corp_board_minutes_q3_2024", "contract_apex_corp_meridian_ltd"],
+    "type": "hidden_bridge",
+    "difficulty": "hard",
+    "hops": 2,
+    "reasoning": "The question uses the codename 'Project Phoenix' which only appears in the board minutes. The agent must read the board minutes to discover Phoenix refers to the Chicago-based supply chain partner (Meridian Ltd), then find the actual contract."
+  },
+  {
+    "id": "h02",
+    "question": "What is the compliance audit outcome for the company identified as Vendor V-7742 in Meridian's incident report?",
+    "answer": "Vendor V-7742 is Horizon Logistics. Their compliance audit (DOT Fleet Compliance, conducted 2024-05-20) found them conditionally compliant: 2 vehicles exceeding hours-of-service limits and 15 vehicles needing ELD firmware upgrades, though cold-chain certification was verified.",
+    "expected_citations": ["meridian_ltd_incident_report_2024", "horizon_logistics_compliance_20240520"],
+    "type": "hidden_bridge",
+    "difficulty": "hard",
+    "hops": 2,
+    "reasoning": "The question references 'Vendor V-7742' — a code only found in Meridian's incident report. The agent must read that report, identify V-7742 as the logistics vendor ($12M/year, Memphis hub, fleet audit in May), match it to Horizon Logistics, then find Horizon's compliance report."
+  },
+  {
+    "id": "h03",
+    "question": "Which company had higher 2024 revenue growth: Apex Corp's compliance auditor or Meridian Ltd's logistics partner?",
+    "answer": "Apex Corp's compliance auditor is Atlas Consulting (18.9% growth). Meridian's logistics partner is Horizon Logistics (5.3% growth). Atlas Consulting had higher revenue growth.",
+    "expected_citations": ["apex_corp_compliance_20240915", "atlas_consulting_2024_financial", "contract_meridian_ltd_horizon_logistics", "horizon_logistics_2024_financial"],
+    "type": "parallel_hops",
+    "difficulty": "hard",
+    "hops": 4,
+    "reasoning": "Two independent discovery chains: (1) Apex compliance report → auditor is Atlas Consulting → Atlas financial for growth rate; (2) Meridian contracts → logistics partner is Horizon → Horizon financial for growth rate. Then compare."
+  },
+  {
+    "id": "h04",
+    "question": "Client 4491 in Summit Financial's internal memo experienced a ransomware attack. What was the total cost of the incident, and what is the client's 2024 revenue?",
+    "answer": "Client 4491 is Crestline Energy. The ransomware attack on 2024-06-15 cost $2.3M in remediation. Crestline Energy's 2024 revenue was $178.4M.",
+    "expected_citations": ["summit_financial_internal_memo_2024", "crestline_energy_2024_financial"],
+    "type": "hidden_bridge",
+    "difficulty": "hard",
+    "hops": 2,
+    "reasoning": "The question uses 'Client 4491' — an internal code from Summit's memo. Agent must read the memo to discover Client 4491 is a Houston-based energy company (Crestline Energy), then find Crestline's financial report."
+  },
+  {
+    "id": "h05",
+    "question": "Vanguard Systems lists a vendor as 'VS-201' in their vendor assessment. What is the total value of all contracts held by that vendor?",
+    "answer": "Vendor VS-201 is Apex Corp (San Francisco, CEO J. Chen, 12.3% revenue growth). Apex Corp holds 3 contracts: Meridian Ltd ($45M), Vanguard Systems ($32M), and Atlas Consulting ($3.2M), totaling $80.2M.",
+    "expected_citations": ["vanguard_systems_vendor_assessment_2024", "contract_apex_corp_meridian_ltd", "contract_apex_corp_vanguard_systems", "contract_apex_corp_atlas_consulting"],
+    "type": "hidden_bridge",
+    "difficulty": "hard",
+    "hops": 4,
+    "reasoning": "Agent must: (1) read Vanguard vendor assessment to identify VS-201 as San Francisco tech company with CEO J. Chen (= Apex Corp), (2) search for all Apex Corp contracts, (3) sum the values."
+  },
+  {
+    "id": "h06",
+    "question": "What is the on-time delivery SLA for the logistics provider that ships to Pinnacle Health's primary device manufacturer?",
+    "answer": "Pinnacle Health's primary device manufacturer is Meridian Ltd (Chicago, IL). Meridian's logistics provider is Horizon Logistics. The Meridian-Horizon contract specifies a 98.5% on-time delivery SLA, with a $50K penalty per 0.1% below SLA per quarter.",
+    "expected_citations": ["pinnacle_health_board_report_q2_2024", "contract_meridian_ltd_horizon_logistics"],
+    "type": "deep_sequential",
+    "difficulty": "hard",
+    "hops": 3,
+    "reasoning": "3-hop chain: (1) Pinnacle Health board report → primary device manufacturer is Chicago-based (= Meridian Ltd), (2) Meridian contracts → logistics provider is Horizon Logistics, (3) Meridian-Horizon contract → SLA terms. Naive RAG searching for 'logistics SLA Pinnacle Health' won't find the right contract."
+  },
+  {
+    "id": "h07",
+    "question": "The lead partner on the Atlas Consulting engagement for Meridian Ltd (Client AC-CHI) also noted that the client's logistics vendor had a critical incident. What was the financial impact of that incident?",
+    "answer": "The lead partner for Meridian's engagement (ENG-002, Client AC-CHI) was James Wright. The logistics vendor's critical incident (Horizon Logistics / Vendor V-7742, refrigeration failure at Memphis hub on 2024-06-28) had a financial impact of $890K ($340K re-inspection + $550K expedited replacement), plus a $150K SLA penalty.",
+    "expected_citations": ["atlas_consulting_engagement_log_2024", "meridian_ltd_incident_report_2024"],
+    "type": "hidden_bridge",
+    "difficulty": "hard",
+    "hops": 2,
+    "reasoning": "Agent must connect the engagement log's reference to 'logistics vendor critical incident in June 2024' with Meridian's incident report about Vendor V-7742."
+  },
+  {
+    "id": "h08",
+    "question": "What is the combined 2024 revenue of all companies that Atlas Consulting audited, according to their engagement log?",
+    "answer": "Atlas Consulting audited 4 clients: AC-SF (Apex Corp, $142.5M), AC-CHI (Meridian Ltd, $89.7M), AC-ATL (Horizon Logistics, $56.8M), AC-ARL (Vanguard Systems, $215.8M). Combined 2024 revenue: $504.8M.",
+    "expected_citations": ["atlas_consulting_engagement_log_2024", "apex_corp_2024_financial", "meridian_ltd_2024_financial", "horizon_logistics_2024_financial", "vanguard_systems_2024_financial"],
+    "type": "parallel_hops",
+    "difficulty": "hard",
+    "hops": 5,
+    "reasoning": "Agent must: (1) read engagement log to get client codes, (2) map each code to a real company by city/description, (3) look up each company's 2024 financial report, (4) sum revenues. This requires 5 document retrievals and computation."
+  },
+  {
+    "id": "h09",
+    "question": "Operation Sentinel generated $3.2M in Q3 revenue. What is the ITAR compliance status of the defense-sector partner involved, and what governing law applies to the venture?",
+    "answer": "Operation Sentinel is Apex Corp's joint cybersecurity venture with Vanguard Systems (Arlington, VA). Vanguard's ITAR compliance was verified in their 2024-10-01 audit. The venture is governed by the State of Virginia, per the $32M/5-year contract.",
+    "expected_citations": ["apex_corp_board_minutes_q3_2024", "vanguard_systems_compliance_20241001", "contract_apex_corp_vanguard_systems"],
+    "type": "hidden_bridge",
+    "difficulty": "hard",
+    "hops": 3,
+    "reasoning": "The question uses 'Operation Sentinel' — a codename from the board minutes. Agent must discover it refers to the Apex-Vanguard cybersecurity JV, then look up Vanguard's compliance and the contract details."
+  },
+  {
+    "id": "h10",
+    "question": "Pinnacle Health's board report mentions a 'Washington, DC-based consulting firm' they're considering for a supply chain review. Which firm is this, and what is their total 2024 engagement revenue?",
+    "answer": "The Washington, DC-based consulting firm is Atlas Consulting. Atlas Consulting's total 2024 engagement revenue is $9.2M across 4 clients (Apex Corp $3.2M, Meridian Ltd $1.8M, Horizon Logistics $1.5M, Vanguard Systems $2.7M).",
+    "expected_citations": ["pinnacle_health_board_report_q2_2024", "atlas_consulting_engagement_log_2024", "atlas_consulting_2024_financial"],
+    "type": "deep_sequential",
+    "difficulty": "hard",
+    "hops": 3,
+    "reasoning": "Agent must: (1) read Pinnacle board report to find reference to DC-based consulting firm, (2) identify that Atlas Consulting is DC-based, (3) find Atlas engagement log for total revenue. The indirect description makes direct keyword search hard — Pinnacle's report never names Atlas directly."
+  },
+  {
+    "id": "h11",
+    "question": "Which consulting firm — Atlas Consulting or GlobalTech Solutions — conducted the SOC 2 audit for Vanguard Systems, and what was the outcome?",
+    "answer": "Atlas Consulting conducted the SOC 2 + ITAR compliance audit for Vanguard Systems. The outcome was Compliant. GlobalTech Solutions also provides SOC 2 audit services but was not engaged by Vanguard.",
+    "expected_citations": ["vanguard_systems_compliance_20241001", "atlas_consulting_engagement_log_2024"],
+    "type": "distractor_latch",
+    "difficulty": "hard",
+    "hops": 2,
+    "reasoning": "Both Atlas Consulting and GlobalTech Solutions offer SOC 2 audit services. Naive RAG will retrieve documents from both firms. The agent must verify which firm actually conducted Vanguard's audit by checking the compliance report or engagement log."
+  },
+  {
+    "id": "h12",
+    "question": "The company coded as engagement ENG-003 in Atlas Consulting's log had vehicles exceeding hours-of-service limits. How many units were affected in the supply chain incident caused by this company's infrastructure failure?",
+    "answer": "ENG-003 is Horizon Logistics (Client AC-ATL, Atlanta, GA — DOT Fleet Compliance Audit). Horizon's refrigeration unit failure at their Memphis hub caused a supply chain incident affecting 2,400 units of Class II cardiac monitoring sensors (per Meridian Ltd's incident report where Horizon is coded as Vendor V-7742).",
+    "expected_citations": ["atlas_consulting_engagement_log_2024", "meridian_ltd_incident_report_2024"],
+    "type": "deep_sequential",
+    "difficulty": "hard",
+    "hops": 3,
+    "reasoning": "3-hop chain: (1) engagement log → ENG-003 is Client AC-ATL (fleet compliance, Atlanta = Horizon Logistics), (2) connect Horizon to Vendor V-7742 in Meridian's incident report, (3) find the 2,400 units figure. Multiple layers of indirection through codes."
+  }
+]
