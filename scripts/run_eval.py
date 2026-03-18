@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -103,9 +104,52 @@ def main(
         question_ids=question_ids,
     )
 
-    # Print results
+    # Always print and save, even on partial results
     console.print()
-    print_results(results, verbose=verbose)
+    if results:
+        print_results(results, verbose=verbose)
+    save_transcripts(results)
+
+
+def save_transcripts(results: list) -> None:
+    """Save eval results and trajectories as JSON transcripts to out/."""
+    out_dir = Path("out")
+    out_dir.mkdir(exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_path = out_dir / f"run_{timestamp}.json"
+
+    transcripts = []
+    for r in results:
+        transcripts.append({
+            "question_id": r.question_id,
+            "question": r.question,
+            "policy": r.policy_name,
+            "reward": r.reward,
+            "answer_score": r.answer_score,
+            "citation_precision": r.citation_precision,
+            "citation_recall": r.citation_recall,
+            "efficiency_bonus": r.efficiency_bonus,
+            "steps": r.steps,
+            "duration_seconds": r.duration_seconds,
+            "predicted_answer": r.predicted_answer,
+            "predicted_citations": r.predicted_citations,
+            "trajectory": [
+                {
+                    "step": s.step,
+                    "action": s.action,
+                    "observation": s.observation,
+                    "reward": s.reward,
+                    "done": s.done,
+                }
+                for s in r.trajectory
+            ],
+        })
+
+    with open(out_path, "w") as f:
+        json.dump(transcripts, f, indent=2)
+
+    console.print(f"\n[bold green]Transcript saved to {out_path}[/bold green]")
 
 
 if __name__ == "__main__":

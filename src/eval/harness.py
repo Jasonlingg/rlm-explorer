@@ -113,40 +113,46 @@ def run_eval(
         corpus_path=corpus_path,
     )
 
-    for policy_name, policy in policies.items():
-        logger.info(f"Running policy: {policy_name}")
+    try:
+        for policy_name, policy in policies.items():
+            logger.info(f"Running policy: {policy_name}")
 
-        for q_idx in q_indices:
-            q = questions[q_idx]
-            logger.info(f"  Question {q['id']}: {q['question'][:60]}...")
+            for q_idx in q_indices:
+                q = questions[q_idx]
+                logger.info(f"  Question {q['id']}: {q['question'][:60]}...")
 
-            try:
-                result = run_single(env, policy, q_idx)
-                result.policy_name = policy_name
-                results.append(result)
-                logger.info(
-                    f"  → reward={result.reward:.3f}, "
-                    f"steps={result.steps}, "
-                    f"time={result.duration_seconds:.1f}s"
-                )
-            except Exception as e:
-                logger.error(f"  → FAILED: {e}")
-                results.append(EvalResult(
-                    question_id=q["id"],
-                    question=q["question"],
-                    policy_name=policy_name,
-                    reward=0.0,
-                    answer_score=0.0,
-                    citation_precision=0.0,
-                    citation_recall=0.0,
-                    efficiency_bonus=0.0,
-                    steps=0,
-                    duration_seconds=0.0,
-                ))
-            finally:
                 try:
-                    env.close()
-                except Exception:
-                    pass
+                    result = run_single(env, policy, q_idx)
+                    result.policy_name = policy_name
+                    results.append(result)
+                    logger.info(
+                        f"  → reward={result.reward:.3f}, "
+                        f"steps={result.steps}, "
+                        f"time={result.duration_seconds:.1f}s"
+                    )
+                except KeyboardInterrupt:
+                    logger.warning("  → Interrupted, saving partial results...")
+                    raise
+                except Exception as e:
+                    logger.error(f"  → FAILED: {e}")
+                    results.append(EvalResult(
+                        question_id=q["id"],
+                        question=q["question"],
+                        policy_name=policy_name,
+                        reward=0.0,
+                        answer_score=0.0,
+                        citation_precision=0.0,
+                        citation_recall=0.0,
+                        efficiency_bonus=0.0,
+                        steps=0,
+                        duration_seconds=0.0,
+                    ))
+                finally:
+                    try:
+                        env.close()
+                    except Exception:
+                        pass
+    except KeyboardInterrupt:
+        logger.warning("Eval interrupted — returning partial results")
 
     return results
