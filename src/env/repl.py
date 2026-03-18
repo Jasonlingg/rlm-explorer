@@ -17,6 +17,27 @@ from loguru import logger
 from src.env.tools import TOOL_PREAMBLE
 
 MAX_OUTPUT_CHARS = 8000
+STEP_MARKER = "___STEP_OUTPUT_MARKER___"
+
+
+def _extract_step_output(raw_output: str) -> str:
+    """Extract only the latest step's output by finding the last marker."""
+    if STEP_MARKER in raw_output:
+        # Take everything after the last marker
+        parts = raw_output.rsplit(STEP_MARKER, 1)
+        output = parts[-1].lstrip("\n")
+    else:
+        output = raw_output
+
+    # Truncate long output to prevent observation flooding
+    if len(output) > MAX_OUTPUT_CHARS:
+        half = MAX_OUTPUT_CHARS // 2
+        output = (
+            output[:half]
+            + f"\n\n... [{len(output) - MAX_OUTPUT_CHARS} chars truncated] ...\n\n"
+            + output[-half:]
+        )
+    return output
 
 
 class BaseREPL(ABC):
@@ -84,8 +105,13 @@ class DockerREPL(BaseREPL):
 
         self._step += 1
         previous_script = self._cumulative_script
-        self._cumulative_script += f"\n# --- Step {self._step} ---\n{code}\n"
+        # Insert marker before this step's code so we can isolate its output
+        marker_line = f'\nprint("{STEP_MARKER}")\n'
+        self._cumulative_script += f"\n# --- Step {self._step} ---{marker_line}{code}\n"
         output = self._run_script(self._cumulative_script, timeout=timeout)
+
+        # Extract only the latest step's output (after the marker)
+        output = _extract_step_output(output)
 
         # Rollback if this step introduced a SyntaxError
         if "SyntaxError" in output:
@@ -160,8 +186,12 @@ class LocalREPL(BaseREPL):
         """Append code to cumulative script and execute. Rollback on SyntaxError."""
         self._step += 1
         previous_script = self._cumulative_script
-        self._cumulative_script += f"\n# --- Step {self._step} ---\n{code}\n"
+        marker_line = f'\nprint("{STEP_MARKER}")\n'
+        self._cumulative_script += f"\n# --- Step {self._step} ---{marker_line}{code}\n"
         output = self._run_script(self._cumulative_script, timeout=timeout)
+
+        # Extract only the latest step's output (after the marker)
+        output = _extract_step_output(output)
 
         # Rollback if this step introduced a SyntaxError
         if "SyntaxError" in output:
