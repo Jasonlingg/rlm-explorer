@@ -1,0 +1,225 @@
+"""Gym-compatible RL environment for document exploration.
+
+Observation space: string (question + execution output from last step)
+Action space: string (Python code to execute, or "SUBMIT: <answer> CITATIONS: [...]")
+Reward: 0 during exploration, verifiable score on submission
+"""
+
+from __future__ import annotations
+
+import json
+import random
+import re
+from dataclasses import dataclass, field
+
+from loguru import logger
+
+from src.env.corpus import Corpus
+from src.env.repl import PersistentREPL
+from src.env.reward import RewardBreakdown, compute_reward
+
+
+@dataclass
+class StepRecord:
+    step: int
+    action: str
+    observation: str
+    reward: float
+    done: bool
+
+
+@dataclass
+class EpisodeInfo:
+    question_id: str
+    question: str
+    gold_answer: str
+    gold_citations: list[str]
+    trajectory: list[StepRecord] = field(default_factory=list)
+    final_reward: RewardBreakdown | None = None
+
+
+SYSTEM_PREAMBLE = """You are exploring a document corpus to answer a question.
+
+Available tools (already loaded in your Python environment):
+- search(query, top_k=5) → keyword search, returns [{doc_id, title, chunk, score}]
+- read(doc_id) → full document text
+- extract(doc_id, pattern) → regex extraction
+- aggregate(doc_ids, field) → extract metadata field across docs
+- list_docs() → list all available documents
+
+Write Python code to investigate. When ready, respond with:
+SUBMIT: <your answer> CITATIONS: ["doc_id_1", "doc_id_2"]
+"""
+
+
+def parse_submission(action: str) -> tuple[str, list[str]] | None:
+    """Parse a SUBMIT action into (answer, citations). Returns None if not a submission."""
+    if not action.strip().upper().startswith("SUBMIT:"):
+        return None
+
+    # Extract answer (between SUBMIT: and CITATIONS:)
+    match = re.search(
+        r"SUBMIT:\s*(.*?)\s*CITATIONS:\s*(\[.*?\])",
+        action,
+        re.DOTALL | re.IGNORECASE,
+    )
+    if match:
+        answer = match.group(1).strip()
+        try:
+            citations = json.loads(match.group(2))
+        except json.JSONDecodeError:
+            citations = []
+        return answer, citations
+
+    # Fallback: just SUBMIT with no citations
+    match = re.search(r"SUBMIT:\s*(.*)", action, re.DOTALL | re.IGNORECASE)
+    if match:
+        return match.group(1).strip(), []
+
+    return None
+
+
+class DocumentExplorationEnv:
+    """Gym-compatible RL environment for document exploration via code execution."""
+
+    def __init__(
+        self,
+        corpus: Corpus,
+        questions: list[dict],
+        max_steps: int = 10,
+        use_docker: bool | None = None,
+        corpus_path: str = "data/corpus",
+    ) -> None:
+        self.corpus = corpus
+        self.questions = questions
+        self.max_steps = max_steps
+        self._use_docker = use_docker
+        self._corpus_path = corpus_path
+        self.repl = PersistentREPL(
+            use_docker=use_docker, corpus_path=corpus_path,
+        )
+        self._episode: EpisodeInfo | None = None
+        self._step_count: int = 0
+        self._done: bool = False
+        self._question_idx: int = 0
+
+    def reset(self, question_idx: int | None = None) -> str:
+        """Start a new episode. Returns initial observation (question + tools)."""
+        # Clean up previous session
+        try:
+            self.repl.kill_session()
+        except Exception:
+            pass
+
+        # Pick question
+        if question_idx is not None:
+            self._question_idx = question_idx
+        q = self.questions[self._question_idx % len(self.questions)]
+
+        self._episode = EpisodeInfo(
+            question_id=q["id"],
+            question=q["question"],
+            gold_answer=q["answer"],
+            gold_citations=q.get("expected_citations", []),
+        )
+        self._step_count = 0
+        self._done = False
+
+        # Start fresh REPL
+        self.repl = PersistentREPL(
+            use_docker=self._use_docker, corpus_path=self._corpus_path,
+        )
+        self.repl.start_session()
+
+        # Build initial observation
+        observation = f"{SYSTEM_PREAMBLE}\n\nQuestion: {q['question']}\n"
+        logger.info(f"Episode started: {q['id']} — {q['question'][:80]}")
+        return observation
+
+    def step(self, action: str) -> tuple[str, float, bool, dict]:
+        """Take an action. Returns (observation, reward, done, info)."""
+        if self._done:
+            return "", 0.0, True, {"error": "Episode already done"}
+        if self._episode is None:
+            raise RuntimeError("Call reset() before step()")
+
+        self._step_count += 1
+
+        # Check if this is a submission
+        submission = parse_submission(action)
+
+        if submission is not None:
+            answer, citations = submission
+            reward_breakdown = compute_reward(
+                predicted_answer=answer,
+                predicted_citations=citations,
+                gold_answer=self._episode.gold_answer,
+                gold_citations=self._episode.gold_citations,
+                steps_taken=self._step_count,
+                max_steps=self.max_steps,
+            )
+            self._episode.final_reward = reward_breakdown
+            self._done = True
+
+            record = StepRecord(
+                step=self._step_count,
+                action=action,
+                observation=f"Submitted. Reward: {reward_breakdown.total:.3f}",
+                reward=reward_breakdown.total,
+                done=True,
+            )
+            self._episode.trajectory.append(record)
+
+            logger.info(
+                f"Episode ended: reward={reward_breakdown.total:.3f} "
+                f"(answer={reward_breakdown.answer_score:.2f}, "
+                f"cit_p={reward_breakdown.citation_precision:.2f}, "
+                f"cit_r={reward_breakdown.citation_recall:.2f}, "
+                f"eff={reward_breakdown.efficiency_bonus:.2f})"
+            )
+
+            info = {
+                "step": self._step_count,
+                "reward_breakdown": reward_breakdown,
+                "predicted_answer": answer,
+                "predicted_citations": citations,
+            }
+            return "", reward_breakdown.total, True, info
+
+        # Execute code in REPL
+        observation = self.repl.execute(action, timeout=30)
+
+        # Check if max steps reached
+        done = self._step_count >= self.max_steps
+        if done:
+            self._done = True
+            logger.warning(f"Max steps ({self.max_steps}) reached — episode timeout")
+
+        record = StepRecord(
+            step=self._step_count,
+            action=action,
+            observation=observation,
+            reward=0.0,
+            done=done,
+        )
+        self._episode.trajectory.append(record)
+
+        info = {"step": self._step_count, "code": action, "output": observation}
+        return observation, 0.0, done, info
+
+    def get_trajectory(self) -> list[StepRecord]:
+        """Return the full trajectory for this episode."""
+        if self._episode is None:
+            return []
+        return self._episode.trajectory
+
+    def get_episode_info(self) -> EpisodeInfo | None:
+        """Return full episode info including question and reward."""
+        return self._episode
+
+    def close(self) -> None:
+        """Clean up REPL session."""
+        try:
+            self.repl.kill_session()
+        except Exception:
+            pass
