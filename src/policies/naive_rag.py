@@ -30,12 +30,14 @@ class NaiveRAGPolicy:
         self,
         corpus: Corpus,
         model: str = "claude-haiku-4-5-20251001",
-        top_k: int = 5,
+        top_k: int = 10,
+        max_context_chars: int = 30_000,
     ) -> None:
         self.corpus = corpus
         self.client = anthropic.Anthropic()
         self.model = model
         self.top_k = top_k
+        self.max_context_chars = max_context_chars
         self._question: str | None = None
         self._answered: bool = False
 
@@ -48,13 +50,26 @@ class NaiveRAGPolicy:
         if self._question is None:
             self._question = self._extract_question(observation)
 
-        # Retrieve top-k chunks
+        # Retrieve top-k chunks, then fetch full docs for better context
         results = self.corpus.search(self._question, top_k=self.top_k)
 
-        # Build context from retrieved chunks
-        context_parts = []
+        seen_docs: set[str] = set()
+        context_parts: list[str] = []
+        total_chars = 0
         for r in results:
-            context_parts.append(f"[{r.doc_id}] {r.chunk}")
+            if r.doc_id in seen_docs:
+                continue
+            seen_docs.add(r.doc_id)
+            text = self.corpus.read(r.doc_id)
+            if not text:
+                continue
+            # Cap individual docs at 2000 chars to leave room for more docs
+            if len(text) > 2000:
+                text = text[:2000] + "\n[truncated]"
+            if total_chars + len(text) > self.max_context_chars:
+                break
+            context_parts.append(f"=== [{r.doc_id}] ===\n{text}")
+            total_chars += len(text)
         context = "\n\n".join(context_parts)
 
         # Ask Claude with retrieved context

@@ -24,7 +24,11 @@ Question: {question}"""
 
 
 class ContextStuffingPolicy:
-    """Baseline: concatenate all docs into context, answer in one step."""
+    """Baseline: concatenate docs into context, answer in one step.
+
+    For small corpora: stuffs everything. For large corpora: retrieves
+    top-k docs by relevance first, then stuffs those.
+    """
 
     def __init__(
         self,
@@ -39,15 +43,12 @@ class ContextStuffingPolicy:
         self._question: str | None = None
         self._answered: bool = False
 
-    def act(self, observation: str) -> str:
-        """Extract question, stuff all docs into context, submit."""
-        if self._answered:
-            return 'SUBMIT: No answer available CITATIONS: []'
+    def _corpus_fits(self) -> bool:
+        """Check if the entire corpus fits within max_context_chars."""
+        return sum(d.chars for d in self.corpus.list_documents()) < self.max_context_chars
 
-        if self._question is None:
-            self._question = self._extract_question(observation)
-
-        # Concatenate all documents
+    def _stuff_all(self) -> str:
+        """Concatenate all documents (small corpus mode)."""
         doc_parts = []
         total_chars = 0
         for doc_info in self.corpus.list_documents():
@@ -55,8 +56,38 @@ class ContextStuffingPolicy:
             if text and total_chars + len(text) < self.max_context_chars:
                 doc_parts.append(f"=== [{doc_info.doc_id}] {doc_info.title} ===\n{text}")
                 total_chars += len(text)
+        return "\n\n".join(doc_parts)
 
-        documents = "\n\n".join(doc_parts)
+    def _stuff_topk(self, question: str, top_k: int = 20) -> str:
+        """Retrieve top-k docs by embedding search, stuff those (large corpus mode)."""
+        results = self.corpus.search(question, top_k=top_k)
+        seen_docs: set[str] = set()
+        doc_parts: list[str] = []
+        total_chars = 0
+        for r in results:
+            if r.doc_id in seen_docs:
+                continue
+            seen_docs.add(r.doc_id)
+            text = self.corpus.read(r.doc_id)
+            if text and total_chars + len(text) < self.max_context_chars:
+                doc_parts.append(f"=== [{r.doc_id}] ===\n{text}")
+                total_chars += len(text)
+        return "\n\n".join(doc_parts)
+
+    def act(self, observation: str) -> str:
+        """Extract question, stuff docs into context, submit."""
+        if self._answered:
+            return 'SUBMIT: No answer available CITATIONS: []'
+
+        if self._question is None:
+            self._question = self._extract_question(observation)
+
+        if self._corpus_fits():
+            documents = self._stuff_all()
+            logger.info(f"ContextStuffing: stuffing all docs ({len(documents)} chars)")
+        else:
+            documents = self._stuff_topk(self._question)
+            logger.info(f"ContextStuffing: large corpus — top-k retrieval ({len(documents)} chars)")
 
         prompt = STUFFING_PROMPT.format(documents=documents, question=self._question)
         response = self.client.messages.create(
