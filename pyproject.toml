@@ -31,6 +31,10 @@ dev = [
 musique = [
     "datasets>=2.0",
 ]
+viewer = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
