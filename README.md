@@ -1,6 +1,6 @@
 # RLM Explorer
 
-Now public! An RL environment for training language models to actively explore **document collections** via code execution in a persistent REPL, rather than passively consuming retrieved context. Inspired by this paper: https://arxiv.org/pdf/2512.24601
+Now public repo! An RL environment for training language models to actively explore **document collections** via code execution in a persistent REPL, rather than passively consuming retrieved context. Inspired by this paper: https://arxiv.org/pdf/2512.24601
 
 
 ## Why This Matters
