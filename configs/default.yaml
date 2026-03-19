@@ -12,6 +12,9 @@ corpus:
   chunk_size: 512
   chunk_overlap: 64
   top_k: 5
+musique:
+  corpus_path: data/musique/corpus
+  questions_path: data/musique/questions/eval_set.json
 eval:
   questions_path: data/questions/eval_set.json
   policies: [claude_policy, naive_rag, context_stuffing, single_shot]

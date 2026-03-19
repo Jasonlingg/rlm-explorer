@@ -17,7 +17,15 @@ from collections import Counter
 if "_memo" not in dir():
     _memo = {}
 
-CORPUS_DIR = Path("/workspace/corpus") if Path("/workspace/corpus").exists() else Path("data/corpus")
+_corpus_env = os.environ.get("CORPUS_DIR", "")
+if _corpus_env and Path(_corpus_env).exists():
+    CORPUS_DIR = Path(_corpus_env)
+elif Path("/workspace/data/corpus").exists():
+    CORPUS_DIR = Path("/workspace/data/corpus")
+elif Path("/workspace/corpus").exists():
+    CORPUS_DIR = Path("/workspace/corpus")
+else:
+    CORPUS_DIR = Path("data/corpus")
 
 def _load_doc(doc_id: str) -> dict | None:
     """Load a document by ID, with memoization."""

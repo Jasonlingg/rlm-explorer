@@ -1,4 +1,5 @@
 data/corpus/
+data/musique/
 out/
 __pycache__/
 .env

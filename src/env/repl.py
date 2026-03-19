@@ -65,19 +65,33 @@ class DockerREPL(BaseREPL):
         self.image = image
         self.memory_limit = memory_limit
         self.corpus_path = os.path.abspath(corpus_path)
+        # Map host corpus_path to container path for the CORPUS_DIR env var.
+        # Data is baked into the image under /workspace/data/.
+        self._container_corpus_dir = self._resolve_container_corpus_dir(corpus_path)
         self._container_id: str | None = None
         self._cumulative_script: str = ""
         self._step: int = 0
 
+    @staticmethod
+    def _resolve_container_corpus_dir(corpus_path: str) -> str:
+        """Map a host-side corpus path to the equivalent path inside the container."""
+        corpus_path = corpus_path.replace("\\", "/")
+        if "musique/corpus" in corpus_path or "musique\\corpus" in corpus_path:
+            return "/workspace/data/musique/corpus"
+        return "/workspace/data/corpus"
+
     def start_session(self) -> None:
-        """Create and start a Docker container, inject tool preamble."""
-        corpus_mount = f"{self.corpus_path}:/workspace/corpus:ro"
+        """Create and start a Docker container, inject tool preamble.
+
+        Corpus data is baked into the image at build time (COPY data/ /workspace/data/).
+        CORPUS_DIR env var tells the tool preamble which corpus to use.
+        """
         result = subprocess.run(
             [
                 "docker", "create",
                 "--memory", self.memory_limit,
                 "--network", "none",
-                "-v", corpus_mount,
+                "-e", f"CORPUS_DIR={self._container_corpus_dir}",
                 "-i", self.image,
                 "python3", "-i",
             ],

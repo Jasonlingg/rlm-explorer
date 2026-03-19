@@ -4,8 +4,23 @@ services:
       context: .
       dockerfile: Dockerfile
     image: rlm-sandbox
-    volumes:
-      - ./data/corpus:/workspace/corpus:ro
+    # Data is baked into the image via COPY — no volume mount needed.
+    # Override corpus at runtime: CORPUS_DIR=/workspace/data/musique/corpus
+    environment:
+      - CORPUS_DIR=/workspace/data/corpus
+    network_mode: none
+    mem_limit: 512m
+    stdin_open: true
+    tty: true
+
+  # MuSiQue variant: larger corpus that defeats context stuffing
+  sandbox-musique:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: rlm-sandbox
+    environment:
+      - CORPUS_DIR=/workspace/data/musique/corpus
     network_mode: none
     mem_limit: 512m
     stdin_open: true

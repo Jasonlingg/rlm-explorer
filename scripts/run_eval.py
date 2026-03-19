@@ -63,8 +63,11 @@ def main(
     hard: bool = typer.Option(
         False, "--hard", help="Use hard multi-hop question set"
     ),
-    test: bool = typer.Option(
-        False, "--test", "-t", help="Test mode: only run first 3 questions"
+    musique: bool = typer.Option(
+        False, "--musique", help="Use MuSiQue corpus + questions (run setup_musique.py first)"
+    ),
+    test: int = typer.Option(
+        0, "--test", "-t", help="Test mode: only run first N questions (e.g. -t 5)"
     ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Print full trajectories"
@@ -82,19 +85,25 @@ def main(
     """Run evaluation: policies through the document exploration environment."""
     console.print("[bold]RLM Explorer — Evaluation[/bold]\n")
 
+    # MuSiQue overrides corpus + questions paths
+    if musique:
+        corpus_path = "data/musique/corpus"
+        questions_path = "data/musique/questions/eval_set.json"
+        console.print("[bold cyan]Using MuSiQue corpus + questions[/bold cyan]")
+
     # Load corpus
     console.print("Loading corpus...")
     corpus = Corpus(corpus_path=corpus_path)
     corpus.load()
 
     # Load questions
-    if hard:
+    if hard and not musique:
         questions_path = "data/questions/hard_eval_set.json"
         console.print("[bold magenta]Using HARD multi-hop question set[/bold magenta]")
     questions = load_questions(questions_path)
-    if test:
-        questions = questions[:3]
-        console.print(f"[yellow]Test mode: using first 3 questions[/yellow]")
+    if test > 0:
+        questions = questions[:test]
+        console.print(f"[yellow]Test mode: using first {test} questions[/yellow]")
     console.print(f"Loaded {len(questions)} questions\n")
 
     # Build policies
